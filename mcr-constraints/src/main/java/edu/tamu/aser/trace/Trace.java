@@ -44,6 +44,12 @@ public class Trace {
 	//rawfulltrace represents all the raw events in the global order
 	Vector<AbstractNode> rawfulltrace = new Vector<AbstractNode>();
 
+	List<String> prefix ;
+
+	public void setPrefix(List<String> prefix) {
+		this.prefix = prefix;
+	}
+
 	//indexed by address, the set of read/write threads
 	//used to prune away local data accesses
 	HashMap<String,HashSet<Long>> indexedReadThreads = new HashMap<String,HashSet<Long>>();
@@ -54,7 +60,7 @@ public class Trace {
 
 	Map<String, Set<String>> dkps = new HashMap<>();
 
-
+	Map<String, Set<String>> newdkps = new HashMap<>();
 	public void setdkps(Map<String, Set<String>>dkps) {this.dkps = dkps;}
 	//the set of threads
 	HashSet<Long> threads = new HashSet<Long>();
@@ -111,24 +117,24 @@ public class Trace {
 	}
 
 
-	public void  calDkps() { //该方法不适合在此地
-
-
-		// Iterate over all events in the trace and add key points (memory accesses and sync operations)
-		for (AbstractNode node : this.rawfulltrace) {
-			if (node instanceof IMemNode) {
-				// 获取线程ID（假设AbstractNode有getTid()方法）
-				String tid = String.valueOf(node.getTid());
-				// 获取节点标签
-				String label = node.getLabel();
-
-				// 初始化线程的标签集合（如果不存在）
-				dkps.putIfAbsent(tid, new HashSet<>());
-				// 将标签添加到对应线程的集合中
-				dkps.get(tid).add(label);
-			}
-		}
-	}
+//	public void  calDkps() { //该方法不适合在此地
+//
+//
+//		// Iterate over all events in the trace and add key points (memory accesses and sync operations)
+//		for (AbstractNode node : this.rawfulltrace) {
+//			if (node instanceof IMemNode) {
+//				// 获取线程ID（假设AbstractNode有getTid()方法）
+//				long tid = node.getTid();
+//				// 获取节点标签
+//				String label = node.getLabel();
+//
+//				// 初始化线程的标签集合（如果不存在）
+//				dkps.putIfAbsent(tid, new HashSet<>());
+//				// 将标签添加到对应线程的集合中
+//				dkps.get(tid).add(label);
+//			}
+//		}
+//	}
 
 
 	// 增强事件获取方法
@@ -265,7 +271,15 @@ public class Trace {
 	}
 
 	public int getDkpsSize() {
-		return dkps.size();
+		int size=0;
+
+
+		for (String key : dkps.keySet()) {
+			size += dkps.get(key).size();
+		}
+
+
+		return size;
 	}
 
 
@@ -667,6 +681,8 @@ public class Trace {
 		{
 			String addr = addrIt.next();
 			HashSet<Long> wtids = indexedWriteThreads.get(addr);
+			HashSet<Long> rtids = indexedReadThreads.get(addr);
+
 			if(wtids!=null&&wtids.size()>0)
 			{
 				if(wtids.size()>1)
@@ -676,7 +692,6 @@ public class Trace {
 				}
 				else
 				{
-					HashSet<Long> rtids = indexedReadThreads.get(addr);
 					if(rtids!=null)
 					{
 						HashSet<Long> set = new HashSet<Long>(rtids);
@@ -685,6 +700,8 @@ public class Trace {
 							sharedAddresses.add(addr);
 					}
 				}
+			}else if (rtids!=null&&rtids.size()>1){
+				sharedAddresses.add(addr);
 			}
 		}
 
@@ -725,6 +742,17 @@ public class Trace {
 	{
 		return rawfulltrace;
 	}
+
+
+
+
+	/**
+	 * 将 rawfulltrace 转换为 Map<String, List<String>> 类型
+	 * 其中，键是 tid 的唯一标识符（String 类型），值是该线程的所有 label 的有序列表
+	 *
+	 * @return Map<String, List<String>> 类型的 rawfulltrace
+	 */
+
 	/**
 	 * compute the lock/unlock pairs because we analyze the trace window by window,
 	 * lock/unlock may not be in the same window, so we may have null lock or unlock
@@ -772,4 +800,18 @@ public class Trace {
 		return info.isAddressVolatile(addr);
 	}
 
+	public Set<String> getSharedAddresses() {
+		return sharedAddresses;
+	}
+
+	public void setnewdkps(Map<String, Set<String>> newDKPs) {
+		this.newdkps=newDKPs;
+	}
+
+	public List<String> getPrefix() {
+		return prefix;
+	}
+	public Map<String, Set<String>> getnewdkps(){
+		return newdkps;
+	}
 }

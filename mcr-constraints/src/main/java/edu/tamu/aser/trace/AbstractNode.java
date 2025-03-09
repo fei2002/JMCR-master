@@ -105,6 +105,9 @@ public abstract class AbstractNode{
 	{
 		return type;
 	}
+	public Long getGid(){
+		return GID;
+	}
 	
 	public  String getLabel() {
 		return label;

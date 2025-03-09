@@ -7,11 +7,14 @@ import edu.tamu.aser.trace.*;
 
 public class StartExploring implements Runnable {
 
+	private  HashMap<Long, String> tidnamemap;
 	private Trace traceObj;                        //the current trace
 	private Vector<String> schedule_prefix;        //the prefix that genrates the trace
 	private Queue<List<String>> exploreQueue;      //the seed interleavings
     private int period ;
+	private Vector<AbstractNode> rawfulltrace;
 	Set<Trace> traces;
+	Map<String, Set<String>> newdkps;
 	public static class BoxInt {
 
 		volatile int  value;
@@ -42,12 +45,15 @@ public class StartExploring implements Runnable {
 		this.period = p;
 	}
 
-	public StartExploring(Trace trace, Vector<String> prefix, Queue<List<String>> queue ,int p,Set<Trace> traces) {
+	public StartExploring(Trace trace, Vector<String> prefix, Queue<List<String>> queue ,int p,Set<Trace> traces,Map<String, Set<String>> newdkps,Vector<AbstractNode> RawFullTrace,HashMap<Long, String> threadTidNameMap) {
 		this.traceObj = trace;
 		this.schedule_prefix = prefix;
 		this.exploreQueue = queue;
 		this.period = p;
 		this.traces=traces;
+		this.newdkps=newdkps;
+		this.rawfulltrace=RawFullTrace;
+		this.tidnamemap=threadTidNameMap;
 	}
 
 
@@ -162,14 +168,15 @@ public class StartExploring implements Runnable {
 			ExploreSeedInterleavings explore = new ExploreSeedInterleavings(exploreQueue,traces);
 
 			//load the trace
-			traceObj.finishedLoading(true);
+//			traceObj.finishedLoading(true);
 			//at 这 shared var 识别
 			//该方法用于生成交错
 			//explore.execute(traceObj, schedule_prefix);//这个方法不用进去了
 			//Map<String, List<String>> fullEvents = getFullThreadEvents(traceObj);
 
+//            if(period>=rawfulltracemap.size()) {
+				explore.execute(traceObj, schedule_prefix,rawfulltrace,tidnamemap);
 
-			explore.execute(traceObj, schedule_prefix);
 //			ExploreSeedInterleavings.memUsed += ExploreSeedInterleavings.memSize(ExploreSeedInterleavings.mapPrefixEquivalent);
 		} catch (Exception e) {
 			e.printStackTrace();

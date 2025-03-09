@@ -28,7 +28,7 @@ public class MCRStrategy extends SchedulingStrategy {
 
 	public static Set<Trace> traces=new HashSet<>();//Trace 加上prefix信息以及dkps信息
 	//public static int p=2;
-	public static int p = Configuration.getInitialConcurrency();
+	public static int p = -1;//Configuration.getInitialConcurrency();
 
 	private int count;
 	public MCRStrategy() {
@@ -122,29 +122,83 @@ public class MCRStrategy extends SchedulingStrategy {
 //	}
 
 
-private Map<String, Set<String>> getDkps(Trace trace) {
-	// 使用线程ID作为键，每个线程对应一个标签集合
-	Map<String, Set<String>> dkps = new HashMap<>();
+//private Map<Long, Set<String>> getDkps(Trace trace) {
+//	// 使用线程ID作为键，每个线程对应一个标签集合
+//	Map<Long, Set<String>> dkps = new HashMap<>();
+//
+//	for (IMemNode node : trace.getAllMemoryNodes()) {
+//		if (node instanceof ReadNode || node instanceof WriteNode) {
+//			Long tid = node.getTid();
+//			String label = ((AbstractNode) node).getLabel();
+//
+//			// 初始化线程的标签集合（如果不存在）
+//			dkps.putIfAbsent(tid, new HashSet<>());
+//
+//			// 将标签添加到对应线程的集合中
+//			dkps.get(tid).add(label);
+//		}
+//	}
+//	return dkps;
+//}
 
-	for (IMemNode node : trace.getAllMemoryNodes()) {
-		if (node instanceof ReadNode || node instanceof WriteNode) {
-			String tid = String.valueOf(node.getTid());
-			String label = ((AbstractNode) node).getLabel();
+	/**
+	 * 从 rawfulltrace 中提取符合条件的节点（IMemNode 且地址在 sharedAddresses 中），
+	 * 并将 tid 转换为唯一标识符，构建一个 Map<String, Set<String>>，其中键是 tid 的唯一标识符，
+	 * 值是该线程的所有 label 的集合。
+	 *
+	 * @param trace 包含 rawfulltrace 和 sharedAddresses 的 Trace 对象
+	 * @return Map<String, Set<String>> 类型的 dkps
+	 */
+	private Map<String, Set<String>> getDkps(Trace trace) {
+		// 使用线程ID的唯一标识符作为键，每个线程对应一个标签集合
+		Map<String, Set<String>> dkps = new HashMap<>();
 
-			// 初始化线程的标签集合（如果不存在）
-			dkps.putIfAbsent(tid, new HashSet<>());
+		// 获取 rawfulltrace
+		Vector<AbstractNode> rawFullTrace = trace.getRawFullTrace();
 
-			// 将标签添加到对应线程的集合中
-			dkps.get(tid).add(label);
+		// 获取 sharedAddresses
+		Set<String> sharedAddresses = trace.getSharedAddresses();
+
+		// 遍历 rawfulltrace 中的每个节点
+		for (AbstractNode node : rawFullTrace) {
+			// 判断节点是否为 IMemNode 类型
+			if (node instanceof IMemNode) {
+				IMemNode memNode = (IMemNode) node;
+
+				// 获取节点的地址
+				String address = memNode.getAddr();
+
+				// 判断地址是否在 sharedAddresses 中
+				if (sharedAddresses.contains(address)) {
+					// 获取节点的 tid 并转换为唯一标识符
+					long tid = node.getTid();
+					String tidName = RVRunTime.threadTidNameMap.get(tid);
+
+					// 获取节点的 label
+					String label = memNode.getLabel();
+
+					// 初始化线程的标签集合（如果不存在）
+					dkps.putIfAbsent(tidName, new HashSet<>());
+
+					// 将 label 添加到对应线程的集合中
+					dkps.get(tidName).add(label);
+				}
+			}
 		}
+
+		// 将 dkps 设置到 trace 中
+		trace.setdkps(dkps);
+
+		return dkps;
 	}
-	return dkps;
-}
+
+
 
 	// 在MCRStrategy类中添加方法
 	private Map<String, Set<String>> findNewDKPs(Trace currentTrace) {
 		// 1. 获取当前Trace的DKPs结构：Map<线程, Set<DKP>>
-		Map<String, Set<String>> currentDKPs = currentTrace.getDkps();
+
+		Map<String,Set<String>> currentDKPs = currentTrace.getDkps();
 
 		// 2. 构建结果Map（线程 → 新增的DKP集合）
 		Map<String, Set<String>> newDKPs = new HashMap<>();
@@ -177,115 +231,223 @@ private Map<String, Set<String>> getDkps(Trace trace) {
 	/**
 	 * generate new schedules from the trace by this execution
 	 */
-	public void completedScheduleExecution() {
-		this.notYetExecutedFirstSchedule = false;
-
-		//Vector<String> prefix = new Vector<String>();
-//		for (String choice : MCRStrategy.schedulePrefix) {
-//			prefix.add(choice);
+//	public void completedScheduleExecution() {
+//		this.notYetExecutedFirstSchedule = false;
+//
+//		//Vector<String> prefix = new Vector<String>();
+////		for (String choice : MCRStrategy.schedulePrefix) {
+////			prefix.add(choice);
+////		}
+//
+//		if (Configuration.DEBUG) {
+//			System.out.print("<< Exploring trace executed along causal schedule " + count + ": ");
+//			count++;
+//			System.err.println(choicesMade);
+//			System.out.print("\n");
+//		}
+//
+//		//executeMultiThread(trace, prefix);
+//
+//		/*
+//		 * after executing the program along the given prefix
+//		 * then the model checker will analyze the trace generated
+//		 * to computer more possible interleavings
+//		 */
+//
+//			// 记录当前trace
+//		currentTrace.calDkps();
+//		// 检测新DKPs
+//		Map<Long, Set<String>>DKPS=getDkps(currentTrace);
+//		currentTrace.setdkps(DKPS);
+//		currentTrace.setPeriod(p);
+//		Map<Long, Set<String>> newDKPs = findNewDKPs(currentTrace);//此处有bug，计算方式有误
+//
+//		if(!newDKPs.isEmpty()){
+//			// 处理新DKPs
+//			// 找到首个新DKP位置并切割前缀
+//			List<String> prefix = new ArrayList<>();
+//			int splitIndex = -1;
+//
+//			// 遍历原始跟踪的每个节点，找到第一个属于 newDKPs 的节点
+//			List<AbstractNode> rawFullTrace = currentTrace.getRawFullTrace();
+//			for (int i = 0; i < rawFullTrace.size(); i++) {
+//				AbstractNode node = rawFullTrace.get(i);
+//				if (node instanceof IMemNode) {
+//					// 获取当前节点的 tid 和 label
+//					String tid = node.getTid();
+//					String label = ((IMemNode) node).getLabel();
+//
+//					// 检查该节点的 tid 和 label 是否属于 newDKPs
+//					if (newDKPs.containsKey(tid)) {
+//						Set<String> dkpLabels = newDKPs.get(tid);
+//						if (dkpLabels.contains(label)) {
+//							splitIndex = i; // 找到第一个匹配的节点位置
+//							break;
+//						}
+//					}
+//				}
+//			}
+//
+//			// 如果未找到匹配的节点，直接返回
+//			if (splitIndex == -1) {
+//				System.err.println("错误：newDKPs 中的节点未在原始跟踪中找到");
+//				return;
+//			}
+//
+//			// 提取 splitIndex 之前所有节点的 tidName
+//			for (int i = 0; i < splitIndex; i++) {
+//				AbstractNode node = rawFullTrace.get(i);
+//				if (node instanceof IMemNode) {
+//					// 将 tid 转换为 tidName
+//					long tid =node.getTid();
+//					String tidName = RVRunTime.threadTidNameMap.get(tid);
+//					prefix.add(tidName);
+//				}
+//			}
+//
+//			// 执行前缀（仅线程名序列）
+//			executeSingleThread(new Vector<>(prefix));
+//
+//		}else if (toExplore.isEmpty()){
+//// 处理周期递增
+//
+//				p++;
+//				traces.removeIf(t -> t.getDkpsSize() < p);
+//				generatePeriodBasedSchedules();
+//
 //		}
 
-		if (Configuration.DEBUG) {
-			System.out.print("<< Exploring trace executed along causal schedule " + count + ": ");
-			count++;
-			System.err.println(choicesMade);
-			System.out.print("\n");
-		}
 
-		//executeMultiThread(trace, prefix);
 
-		/*
-		 * after executing the program along the given prefix
-		 * then the model checker will analyze the trace generated
-		 * to computer more possible interleavings
-		 */
+public void completedScheduleExecution() {
+	this.notYetExecutedFirstSchedule = false;
 
-			// 记录当前trace
-		currentTrace.calDkps();
-		// 检测新DKPs
-		Map<String, Set<String>>DKPS=getDkps(currentTrace);
-		currentTrace.setdkps(DKPS);
-		currentTrace.setPeriod(p);
-		Map<String, Set<String>> newDKPs = findNewDKPs(currentTrace);//此处有bug，计算方式有误
+	if (Configuration.DEBUG) {
+		System.out.print("<< Exploring trace executed along causal schedule " + count + ": ");
+		count++;
+		System.err.println(choicesMade);
+		System.out.print("\n");
+	}
 
-		if(!newDKPs.isEmpty()){
-			// 处理新DKPs
-			// 找到首个新DKP位置并切割前缀
-			List<String> prefix = new ArrayList<>();
-			int splitIndex = -1;
+	currentTrace.finishedLoading(true);
 
-			// 遍历原始跟踪的每个节点，找到第一个属于 newDKPs 的节点
-			List<AbstractNode> rawFullTrace = currentTrace.getRawFullTrace();
-			for (int i = 0; i < rawFullTrace.size(); i++) {
-				AbstractNode node = rawFullTrace.get(i);
-				if (node instanceof IMemNode) {
-					// 获取当前节点的 tid 和 label
-					String tid = String.valueOf(node.getTid());
-					String label = ((IMemNode) node).getLabel();
+	// 记录当前 trace
+//	currentTrace.calDkps();
+	// 检测新 DKPs
+	Map<String, Set<String>> DKPS = getDkps(currentTrace);
+	currentTrace.setdkps(DKPS);
+	if (p==-1){
+		p=DKPS.keySet().size();
+	}
+	currentTrace.setPeriod(p);
+	Map<String, Set<String>> newDKPs = findNewDKPs(currentTrace);
+	currentTrace.setnewdkps(newDKPs);
 
-					// 检查该节点的 tid 和 label 是否属于 newDKPs
-					if (newDKPs.containsKey(tid)) {
-						Set<String> dkpLabels = newDKPs.get(tid);
-						if (dkpLabels.contains(label)) {
-							splitIndex = i; // 找到第一个匹配的节点位置
-							break;
-						}
+	if (!newDKPs.isEmpty()) {
+		traces.add(currentTrace);
+		// 处理新 DKPs
+		// 找到首个新 DKP 位置并切割前缀
+		List<String> prefix = new ArrayList<>();
+		int splitIndex = -1;
+
+		// 遍历原始跟踪的每个节点，找到第一个属于 newDKPs 的节点
+		List<AbstractNode> rawFullTrace = currentTrace.getRawFullTrace();
+		for (int i = 0; i < rawFullTrace.size(); i++) {
+			AbstractNode node = rawFullTrace.get(i);
+			if (node instanceof IMemNode) {
+				// 获取当前节点的 tid 和 label
+				long tid = node.getTid(); // tid 是 long 类型
+				String tidName = RVRunTime.threadTidNameMap.get(tid); // 转换为唯一标识符
+				String label = ((IMemNode) node).getLabel();
+
+				// 检查该节点的 tidName 和 label 是否属于 newDKPs
+				if (tidName != null && newDKPs.containsKey(tidName)) {
+					Set<String> dkpLabels = newDKPs.get(tidName);
+					if (dkpLabels.contains(label)) {
+						splitIndex = i; // 找到第一个匹配的节点位置
+						break;
 					}
 				}
 			}
+		}
 
-			// 如果未找到匹配的节点，直接返回
-			if (splitIndex == -1) {
-				System.err.println("错误：newDKPs 中的节点未在原始跟踪中找到");
-				return;
-			}
+		// 如果未找到匹配的节点，直接返回
+		if (splitIndex == -1) {
+			System.err.println("错误：newDKPs 中的节点未在原始跟踪中找到");
+			return;
+		}
 
-			// 提取 splitIndex 之前所有节点的 tidName
-			for (int i = 0; i < splitIndex; i++) {
-				AbstractNode node = rawFullTrace.get(i);
-				if (node instanceof IMemNode) {
-					// 将 tid 转换为 tidName
-					long tid =node.getTid();
-					String tidName = RVRunTime.threadTidNameMap.get(tid);
+		// 提取 splitIndex 之前所有节点的 tidName
+		for (int i = 0; i < splitIndex; i++) {
+			AbstractNode node = rawFullTrace.get(i);
+			if (node instanceof IMemNode) {
+				// 将 tid 转换为 tidName
+				long tid = node.getTid(); // tid 是 long 类型
+				String tidName = RVRunTime.threadTidNameMap.get(tid);
+				if (tidName != null) {
 					prefix.add(tidName);
 				}
 			}
-
-			// 执行前缀（仅线程名序列）
-			executeSingleThread(new Vector<>(prefix));
-
-		}else if (toExplore.isEmpty()){
-// 处理周期递增
-
-				p++;
-				traces.removeIf(t -> t.getDkpsSize() < p);
-				generatePeriodBasedSchedules();
-
 		}
-		else{
-//下一个trace
-		}
+		currentTrace.setPrefix(prefix);
 
-		traces.add(currentTrace);
+		// 执行前缀（仅线程名序列）
+		//executeSingleThread(new Vector<>(prefix));
+
+
+		// 执行前缀（仅线程名序列）
+		executeSingleThread(new Vector<>(prefix),newDKPs,currentTrace);
+
+	}
+
+	if (toExplore.isEmpty()) {
+		p++;
+		traces.removeIf(t -> t.getDkpsSize() < p);
+
+		for (Trace trace : traces) {
+			Map<String, Set<String>> newdkps = trace.getDkps();
+			List<String> prefix = trace.getPrefix();
+			executeSingleThread(new Vector<>(prefix), newdkps,trace);
+		}
+	}
+
+
+
+//		traces.add(currentTrace);
 	}
 
 
 
 	// 生成周期调度
-	private void generatePeriodBasedSchedules() {
-		Set<Trace> validTraces = new HashSet<>();
-		for (Trace trace : traces) {
-			if (trace.getPeriod() <= p) {
-				traces.remove(trace);
-				// 从有效trace生成新调度
-				List<String> prefix0=new ArrayList<>();
-				List<String> dkps0 = trace.getEvents();
 
+
+
+	public Map<String, List<String>> getRawFullTraceAsMap(Vector<AbstractNode> rawfulltrace) {
+		Map<String, List<String>> traceMap = new HashMap<>();
+
+		// 遍历 rawfulltrace 中的每个节点
+		for (AbstractNode node : rawfulltrace) {
+			// 获取节点的 tid 并转换为唯一标识符
+			long tid = node.getTid();
+			String tidName = RVRunTime.threadTidNameMap.get(tid);
+
+			// 如果 tidName 为 null，跳过该节点
+			if (tidName == null) {
+				continue;
 			}
+
+			// 获取节点的 label
+			String label = node.getLabel();
+
+			// 如果 tidName 不存在于 map 中，初始化一个空的 List
+			traceMap.computeIfAbsent(tidName, k -> new ArrayList<>());
+
+			// 将 label 添加到对应 tidName 的 List 中
+			traceMap.get(tidName).add(label);
 		}
+
+		return traceMap;
 	}
-
-
 
 	// 清理过期trace
 	private void cleanUpTraces() {
@@ -302,11 +464,11 @@ private Map<String, Set<String>> getDkps(Trace trace) {
 	 * @param prefix
 	 */
 
-	private void executeSingleThread(Vector<String> prefix) {
+	private void executeSingleThread(Vector<String> prefix,Map<String, Set<String>> newDKPs,Trace trace) {
 
-		currentTrace.getTraceInfo().updateIdSigMap( RVGlobalStateForInstrumentation.stmtIdSigMap );   //solving the first trace initialization problem
-
-		StartExploring causalTrace = new StartExploring(currentTrace, prefix, this.toExplore , this.p,traces);
+		trace.getTraceInfo().updateIdSigMap( RVGlobalStateForInstrumentation.stmtIdSigMap );   //solving the first trace initialization problem
+		//Map<String, List<String>> RawFullTraceAsMap=getRawFullTraceAsMap(trace.getRawFullTrace());
+		StartExploring causalTrace = new StartExploring(trace, prefix, this.toExplore , this.p,traces,newDKPs,trace.getRawFullTrace(),RVRunTime.threadTidNameMap);
 		Thread causalTraceThread = new Thread(causalTrace);
 		causalTraceThread.start();
 		try {
