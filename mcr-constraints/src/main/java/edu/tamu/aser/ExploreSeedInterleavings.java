@@ -43,13 +43,16 @@ public class ExploreSeedInterleavings {
 
 	Set<Trace> traces;
 
+	int period=-1;
+
 
 	ExploreSeedInterleavings(Queue<List<String>> exploreQueue) {
 		this.schedules = exploreQueue;
 	}
-	ExploreSeedInterleavings(Queue<List<String>> exploreQueue,Set<Trace> traces) {
+	ExploreSeedInterleavings(Queue<List<String>> exploreQueue,Set<Trace> traces,int period) {
 		this.schedules = exploreQueue;
 		this.traces=traces;
+		this.period=period;
 	}
 
 
@@ -704,6 +707,7 @@ public class ExploreSeedInterleavings {
 		Configuration.rwConstraints = 0;
 		Configuration.solveTime = 0;
 
+
 		tidToTidNameMap=threadTidNameMap;
 		//OPT: if #sv==0 or #shared rw ==0 continue
 		if(trace.hasSharedVariable())
@@ -720,7 +724,8 @@ public class ExploreSeedInterleavings {
 			generatePeriodicSchedules(
 					new ArrayList<>(schedule_prefix),
 					trace.getDkps(),
-					trace.getPeriod(),
+//					trace.getPeriod(),
+					this.period,
 					RawFullTrace// 使用实时传入的周期值
 
 			);
@@ -987,8 +992,16 @@ public class ExploreSeedInterleavings {
 			// 如果线程数或周期数不合法，直接返回空列表
 			return allocations;
 		}
-		backtrackAllocate(totalThreads, totalPeriods - totalThreads,
-				new HashMap<>(), 0, allocations);
+		List<List<Integer>> res=BallDistribution.getAllDistributions(totalThreads,totalPeriods);
+		for (List<Integer> threadPeriods : res){
+			Map<String,Integer> threadPeriodsMap=new HashMap<>();
+			for (int i = 0; i < threadPeriods.size(); i++) {
+				threadPeriodsMap.put(String.valueOf(i),threadPeriods.get(i));
+			}
+			allocations.add(threadPeriodsMap);
+		}
+//		backtrackAllocate(totalThreads, totalPeriods - totalThreads,
+//				new HashMap<>(), 0, allocations);
 		return allocations;
 	}
 
@@ -1060,31 +1073,44 @@ public class ExploreSeedInterleavings {
 
 		int scheduleIndex = 0;  // 用来遍历 schedule
 
-		// 5. 处理剩余的 filteredRawFullTrace 中的节点
-		for (int i = 0; i < filteredRawFullTrace.size(); i++) {
-			AbstractNode node = filteredRawFullTrace.get(i);
-			String tidName = tidToTidNameMap.get(node.getTid());
+//		// 5. 处理剩余的 filteredRawFullTrace 中的节点
+//		for (int i = 0; i < filteredRawFullTrace.size(); i++) {
+//			AbstractNode node = filteredRawFullTrace.get(i);
+//			String tidName = tidToTidNameMap.get(node.getTid());
+//
+//			// 如果当前节点是 schedule 中的关键节点
+//			if (scheduleIndex < schedule.size() && node.equals(schedule.get(scheduleIndex))) {
+//				// 填充 schedule 中的关键节点
+//				fullSchedule.add(tidName);
+//				scheduleIndex++;
+//
+//				// 更新当前线程的指针位置
+//				pointers.put(tidName, i + 1);
+//			} else {
+//				// 如果不是关键节点，且当前线程已经处理到这个节点，则填充
+//				int currentPtr = pointers.get(tidName);
+//				if (i >= currentPtr) {
+//					fullSchedule.add(tidName);
+//					pointers.put(tidName, i + 1);
+//				}
+//			}
+//		}
 
-			// 如果当前节点是 schedule 中的关键节点
-			if (scheduleIndex < schedule.size() && node.equals(schedule.get(scheduleIndex))) {
-				// 填充 schedule 中的关键节点
-				fullSchedule.add(tidName);
-				scheduleIndex++;
-
-				// 更新当前线程的指针位置
-				pointers.put(tidName, i + 1);
-			} else {
-				// 如果不是关键节点，且当前线程已经处理到这个节点，则填充
-				int currentPtr = pointers.get(tidName);
-				if (i >= currentPtr) {
-					fullSchedule.add(tidName);
-					pointers.put(tidName, i + 1);
+		for (int i=0;i<schedule.size();i++){
+			int index=filteredRawFullTrace.indexOf(schedule.get(i));
+			int begin=pointers.get(tidToTidNameMap.get(schedule.get(i).getTid()));
+			for (int j =begin;j<=index;j++){
+				if (filteredRawFullTrace.get(j).getTid()==schedule.get(i).getTid()){
+					fullSchedule.add(tidToTidNameMap.get(filteredRawFullTrace.get(j).getTid()));
 				}
 			}
+			pointers.put(tidToTidNameMap.get(schedule.get(i).getTid()),index+1);
 		}
 
 		return fullSchedule;
 	}
+
+
 
 
 
@@ -1459,3 +1485,64 @@ public class ExploreSeedInterleavings {
 	}
 }
 
+
+
+class BallDistribution {
+
+	public static void main(String[] args) {
+		int n = 3; // Number of bins
+		int m = 5; // Total number of balls, m >= n
+		List<List<Integer>> distributions = getAllDistributions(n, m);
+
+		// Print all possible distributions
+		for (List<Integer> distribution : distributions) {
+			System.out.println(distribution);
+		}
+	}
+
+	/**
+	 * Returns all distributions of m balls into n bins with each bin receiving at least one ball.
+	 */
+	public static List<List<Integer>> getAllDistributions(int n, int m) {
+		List<List<Integer>> results = new ArrayList<>();
+		// Allocate one ball per bin first, so we need to distribute (m - n) extra balls
+		distribute(n, m - n, new ArrayList<>(), results);
+
+		// Adjust each solution by adding 1 to each bin count
+		List<List<Integer>> finalResults = new ArrayList<>();
+		for (List<Integer> distribution : results) {
+			List<Integer> finalDistribution = new ArrayList<>();
+			for (int extra : distribution) {
+				finalDistribution.add(extra + 1);
+			}
+			finalResults.add(finalDistribution);
+		}
+		return finalResults;
+	}
+
+	/**
+	 * Recursive helper method to distribute remaining balls among bins.
+	 *
+	 * @param n         Total number of bins.
+	 * @param remaining The number of extra balls to distribute.
+	 * @param current   The current distribution (each value is the number of extra balls for a bin).
+	 * @param results   The list of valid distributions.
+	 */
+	private static void distribute(int n, int remaining, List<Integer> current, List<List<Integer>> results) {
+		// Base case: if we've assigned a value to all bins...
+		if (current.size() == n) {
+			// ...and there are no extra balls left, record the solution.
+			if (remaining == 0) {
+				results.add(new ArrayList<>(current));
+			}
+			return;
+		}
+
+		// For the current bin, try all possible extra ball counts from 0 to remaining.
+		for (int i = 0; i <= remaining; i++) {
+			current.add(i);
+			distribute(n, remaining - i, current, results);
+			current.remove(current.size() - 1);  // Backtrack.
+		}
+	}
+}

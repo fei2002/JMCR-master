@@ -45,8 +45,8 @@ public class Airline implements Runnable {
      * updating "StopSales" ),
      */
     public/* TO RE-INTRODUCE BUG remove the synchronized */void run() {
-        synchronized (this) 
-        {
+//        synchronized (this)
+//        {
             if (numberOfSeatsSold >= maximumCapacity) // checking
             {
                 stopSales = true; // updating
@@ -54,6 +54,6 @@ public class Airline implements Runnable {
                 numberOfSeatsSold++;
             }
         }
-    }
+//    }
 
 }

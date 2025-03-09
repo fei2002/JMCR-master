@@ -41,10 +41,14 @@ import java.util.Map.Entry;
  */
 public class Trace {
 
+	public HashMap<Long, String> threadTidNameMap;
+
+
 	//rawfulltrace represents all the raw events in the global order
 	Vector<AbstractNode> rawfulltrace = new Vector<AbstractNode>();
 
 	List<String> prefix ;
+
 
 	public void setPrefix(List<String> prefix) {
 		this.prefix = prefix;

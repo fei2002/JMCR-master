@@ -45,7 +45,7 @@ public class StartExploring implements Runnable {
 		this.period = p;
 	}
 
-	public StartExploring(Trace trace, Vector<String> prefix, Queue<List<String>> queue ,int p,Set<Trace> traces,Map<String, Set<String>> newdkps,Vector<AbstractNode> RawFullTrace,HashMap<Long, String> threadTidNameMap) {
+	public StartExploring(Trace trace, Vector<String> prefix, Queue<List<String>> queue,int p,Set<Trace> traces,Map<String, Set<String>> newdkps,Vector<AbstractNode> RawFullTrace,HashMap<Long, String> threadTidNameMap) {
 		this.traceObj = trace;
 		this.schedule_prefix = prefix;
 		this.exploreQueue = queue;
@@ -165,7 +165,7 @@ public class StartExploring implements Runnable {
 	public void run() {
 		try {
 
-			ExploreSeedInterleavings explore = new ExploreSeedInterleavings(exploreQueue,traces);
+			ExploreSeedInterleavings explore = new ExploreSeedInterleavings(exploreQueue,traces,this.period);
 
 			//load the trace
 //			traceObj.finishedLoading(true);

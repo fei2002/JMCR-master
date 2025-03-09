@@ -20,6 +20,7 @@ public class MCRStrategy extends SchedulingStrategy {
 	public static List<Integer> choicesMade;
 	public static List<String> schedulePrefix = new ArrayList<String>();
 	private static Trace currentTrace;
+
 	private boolean notYetExecutedFirstSchedule;
 	private final static int NUM_THREADS = 10;
 	private volatile static ExecutorService executor;
@@ -344,6 +345,7 @@ public void completedScheduleExecution() {
 	currentTrace.setnewdkps(newDKPs);
 
 	if (!newDKPs.isEmpty()) {
+		currentTrace.threadTidNameMap=new HashMap<>(RVRunTime.threadTidNameMap);
 		traces.add(currentTrace);
 		// 处理新 DKPs
 		// 找到首个新 DKP 位置并切割前缀
@@ -468,7 +470,7 @@ public void completedScheduleExecution() {
 
 		trace.getTraceInfo().updateIdSigMap( RVGlobalStateForInstrumentation.stmtIdSigMap );   //solving the first trace initialization problem
 		//Map<String, List<String>> RawFullTraceAsMap=getRawFullTraceAsMap(trace.getRawFullTrace());
-		StartExploring causalTrace = new StartExploring(trace, prefix, this.toExplore , this.p,traces,newDKPs,trace.getRawFullTrace(),RVRunTime.threadTidNameMap);
+		StartExploring causalTrace = new StartExploring(trace, prefix, this.toExplore , this.p,traces,newDKPs,trace.getRawFullTrace(),trace.threadTidNameMap/*RVRunTime.threadTidNameMap*/);
 		Thread causalTraceThread = new Thread(causalTrace);
 		causalTraceThread.start();
 		try {
