@@ -1100,6 +1100,7 @@ public class ExploreSeedInterleavings {
 			int index=filteredRawFullTrace.indexOf(schedule.get(i));
 			if (!pointers.containsKey(tidToTidNameMap.get(schedule.get(i).getTid()))){
 				System.out.println("error");
+
 			}
 			int begin=pointers.get(tidToTidNameMap.get(schedule.get(i).getTid()));
 			for (int j =begin;j<=index;j++){
