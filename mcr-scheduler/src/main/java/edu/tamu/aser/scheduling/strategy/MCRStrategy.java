@@ -25,7 +25,7 @@ public class MCRStrategy extends SchedulingStrategy {
 	private final static int NUM_THREADS = 10;
 	private volatile static ExecutorService executor;
 	private ThreadInfo previousThreadInfo;
-	public static final Boolean fullTrace = false;  //default
+	public static final Boolean fullTrace = true;  //default
 
 	public static Set<Trace> traces=new HashSet<>();//Trace 加上prefix信息以及dkps信息
 	//public static int p=2;
@@ -329,6 +329,7 @@ public void completedScheduleExecution() {
 		System.err.println(choicesMade);
 		System.out.print("\n");
 	}
+//	System.out.println(RVRunTime.failure_trace.size());
 
 	currentTrace.finishedLoading(true);
 
@@ -511,94 +512,160 @@ public void completedScheduleExecution() {
 
 	}
 
+
+	public Object chooseControlled(SortedSet<? extends Object> objectChoices, ChoiceType choiceType){
+		int chosenIndex = 0;
+
+		Object chosenObject = null;
+		String lastChoice=null;
+		int choiceFromPre=-1;
+		for (int i = 0; i < MCRStrategy.schedulePrefix.size(); i++) {
+
+			String current=MCRStrategy.schedulePrefix.get(i);
+//			if (lastChoice!=null&&lastChoice.equals(current)){
+//				continue;
+//			}
+//			lastChoice=current;
+
+			//controlledPrefix;
+			chosenIndex = getChosenThread(objectChoices,current);
+			if (chosenIndex==-1){
+				continue;
+			}
+
+			chosenObject = getChosenObject(chosenIndex, objectChoices);
+			choiceFromPre=i;
+			break;
+		}
+
+		if (choiceFromPre!=-1){
+			MCRStrategy.schedulePrefix.remove(choiceFromPre);
+			MCRStrategy.choicesMade.add(chosenIndex);
+			return chosenObject;
+		}
+		MCRStrategy.choicesMade.add(0);
+		return objectChoices.first();
+	}
+
+	private int getChosenThread(SortedSet<? extends Object> objectChoices, String thread) {
+		String name = thread;//TO-DO
+		long tid = -1;
+		for (Entry<Long, String> entry : RVRunTime.threadTidNameMap.entrySet()) {
+			if (name.equals(entry.getValue())) {
+				tid = entry.getKey();
+				break;
+			}
+		}
+
+		Iterator<? extends Object> iter = objectChoices.iterator();
+		int currentIndex = -1;
+		while (iter.hasNext()) {
+			++currentIndex;
+			ThreadInfo ti = (ThreadInfo) iter.next();
+			if (ti.getThread().getId() == tid) {
+				return currentIndex;
+			}
+		}
+
+		return -1;
+
+	}
+
+	@Override
+	public Object choose(SortedSet<? extends Object> objectChoices, ChoiceType choiceType) {
+
+		return this.chooseControlled(objectChoices, choiceType);
+	}
+
 	/**
 	 * choose the next statement to execute
 	 * this function needs more inspection
 	 */
-	@Override
-	public Object choose(SortedSet<? extends Object> objectChoices, ChoiceType choiceType)
-	{
-		/*
-		 * Initialize choice
-		 */
-		int chosenIndex = 0;
-		Object chosenObject = null;
-
-		//for the rest events, executed in random schedule
-		if (MCRStrategy.schedulePrefix.size() > RVRunTime.currentIndex) {
-			/*
-			 * Make the choice to be made according to schedule prefix
-			 */
-			// chosenIndex = MCRStrategy.schedulePrefix
-			// .get(this.currentIndex);
-			chosenIndex = getChosenThread(objectChoices, RVRunTime.currentIndex);
-			chosenObject = getChosenObject(chosenIndex, objectChoices);
-
-			if (Configuration.DEBUG) {
-				if (chosenObject != null)
-					System.out.println(RVRunTime.currentIndex + ":" + chosenObject.toString());
-			}
-
-			if (chosenObject == null) {
-
-				//one case that can cause this is due to the wait event
-				//wait has no corresponding schedule index, it has to be announced
-				//chose the wait to execute, the wait is trying to acquire the semaphore
-				for (Object objectChoice : objectChoices) {
-					ThreadInfo threadInfo = (ThreadInfo) objectChoice;
-					if (threadInfo.getEventDesc().getEventType() == EventType.WAIT) {
-						return threadInfo;
-					}
-				}
-
-				//what if the chosenObject is still null??
-				//it might not correct
-//			    if (chosenObject == null) {
-//		            chosenIndex = 0;
-//		            while (true) {
-//		                chosenObject = getChosenObject(chosenIndex, objectChoices);
 //
-//		                if(choiceType.equals(ChoiceType.THREAD_TO_FAIR)
-//		                        && chosenObject.equals(previousThreadInfo))
-//		                {
-//		                    //change to a different thread
-//		                }
-//		                else
-//		                    break;
-//		                chosenIndex++;
-//		            }
-//		        }
-//		        MCRStrategy.choicesMade.add(chosenIndex);
+//	@Override
+//	public Object choose(SortedSet<? extends Object> objectChoices, ChoiceType choiceType)
+//	{
+//		/*
+//		 * Initialize choice
+//		 */
+//		int chosenIndex = 0;
+//		Object chosenObject = null;
 //
-//		        this.previousThreadInfo = (ThreadInfo) chosenObject;
-//                return chosenObject;
-			}
-
-		}
-
-		//it might be that the wanted thread is blocked, waiting to be added to the paused threads
-		if (chosenObject == null) {
-			chosenIndex = 0;
-			while (true) {
-				chosenObject = getChosenObject(chosenIndex, objectChoices);
-
-				if(choiceType.equals(ChoiceType.THREAD_TO_FAIR)
-						&& chosenObject.equals(previousThreadInfo))
-				{
-					//change to a different thread
-				}
-				else
-					break;
-				chosenIndex++;
-
-			}
-
-		}
-		MCRStrategy.choicesMade.add(chosenIndex);
-		this.previousThreadInfo = (ThreadInfo) chosenObject;
-
-		return chosenObject;
-	}
+//		//for the rest events, executed in random schedule
+//		if (MCRStrategy.schedulePrefix.size() > RVRunTime.currentIndex) {
+//			/*
+//			 * Make the choice to be made according to schedule prefix
+//			 */
+//			// chosenIndex = MCRStrategy.schedulePrefix
+//			// .get(this.currentIndex);
+//			chosenIndex = getChosenThread(objectChoices, RVRunTime.currentIndex);
+//			chosenObject = getChosenObject(chosenIndex, objectChoices);
+//
+//			if (Configuration.DEBUG) {
+//				if (chosenObject != null)
+//					System.out.println(RVRunTime.currentIndex + ":" + chosenObject.toString());
+//			}
+//
+//			if (chosenObject == null) {
+//
+//				//one case that can cause this is due to the wait event
+//				//wait has no corresponding schedule index, it has to be announced
+//				//chose the wait to execute, the wait is trying to acquire the semaphore
+//				for (Object objectChoice : objectChoices) {
+//					ThreadInfo threadInfo = (ThreadInfo) objectChoice;
+//					if (threadInfo.getEventDesc().getEventType() == EventType.WAIT) {
+//						return threadInfo;
+//					}
+//				}
+//
+//				//what if the chosenObject is still null??
+//				//it might not correct
+////			    if (chosenObject == null) {
+////		            chosenIndex = 0;
+////		            while (true) {
+////		                chosenObject = getChosenObject(chosenIndex, objectChoices);
+////
+////		                if(choiceType.equals(ChoiceType.THREAD_TO_FAIR)
+////		                        && chosenObject.equals(previousThreadInfo))
+////		                {
+////		                    //change to a different thread
+////		                }
+////		                else
+////		                    break;
+////		                chosenIndex++;
+////		            }
+////		        }
+////		        MCRStrategy.choicesMade.add(chosenIndex);
+////
+////		        this.previousThreadInfo = (ThreadInfo) chosenObject;
+////                return chosenObject;
+//			}
+//
+//		}
+//
+//		//it might be that the wanted thread is blocked, waiting to be added to the paused threads
+//		if (chosenObject == null) {
+//			chosenIndex = 0;
+//			while (true) {
+//				chosenObject = getChosenObject(chosenIndex, objectChoices);
+//
+//				if(choiceType.equals(ChoiceType.THREAD_TO_FAIR)
+//						&& chosenObject.equals(previousThreadInfo))
+//				{
+//					//change to a different thread
+//				}
+//				else
+//					break;
+//				chosenIndex++;
+//
+//			}
+//
+//		}
+//		MCRStrategy.choicesMade.add(chosenIndex);
+//		this.previousThreadInfo = (ThreadInfo) chosenObject;
+//
+//		return chosenObject;
+//	}
 
 	@Override
 	public List<Integer> getChoicesMadeDuringThisSchedule() {

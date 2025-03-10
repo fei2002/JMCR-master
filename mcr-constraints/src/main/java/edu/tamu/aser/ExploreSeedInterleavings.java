@@ -1098,6 +1098,9 @@ public class ExploreSeedInterleavings {
 
 		for (int i=0;i<schedule.size();i++){
 			int index=filteredRawFullTrace.indexOf(schedule.get(i));
+			if (!pointers.containsKey(tidToTidNameMap.get(schedule.get(i).getTid()))){
+				System.out.println("error");
+			}
 			int begin=pointers.get(tidToTidNameMap.get(schedule.get(i).getTid()));
 			for (int j =begin;j<=index;j++){
 				if (filteredRawFullTrace.get(j).getTid()==schedule.get(i).getTid()){
