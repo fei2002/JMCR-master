@@ -866,7 +866,17 @@ public class ExploreSeedInterleavings {
 				for (List<List<AbstractNode>> r:res) {
 					List<AbstractNode> orders=new ArrayList<>();
 					r.stream().forEach(list->list.forEach(orders::add));
-					schedules.add(inflateSchedule(orders, rawFullTrace,prefix));
+					// 删除 orders 中出现在 prefix 里的节点
+					List<AbstractNode> filteredOrders = new ArrayList<>();
+					for (AbstractNode node : orders) {
+						int index = rawFullTrace.indexOf(node); // 查找节点在 rawFullTrace 中的位置
+						if (index >= prefix.size()) { // 只保留不在 prefix 范围内的节点
+							filteredOrders.add(node);
+						}
+					}
+
+					// 处理过滤后的 orders
+					schedules.add(inflateSchedule(filteredOrders, rawFullTrace, prefix));
 				}
 			}
 

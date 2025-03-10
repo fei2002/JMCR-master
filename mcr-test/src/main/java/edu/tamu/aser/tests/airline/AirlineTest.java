@@ -77,7 +77,7 @@ public class AirlineTest {
 
     //@Test
     public void test5ThreadsNotTooFew() throws Exception {
-        makeBookings(2);
+        makeBookings(3);
         testNotTooFewTicketsSold();
     }
 
